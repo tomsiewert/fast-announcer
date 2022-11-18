@@ -1,14 +1,15 @@
 package main
 
 import (
-	"os"
-	"log"
 	"encoding/json"
 	"io"
+	"log"
 	"net"
-	"github.com/vishvananda/netlink"
+	"os"
+
 	"github.com/mdlayher/netx/eui64"
-	"git.frickel.earth/siewert/virtualisation/fast-announcer/config"
+	"github.com/tomsiewert/fast-announcer/config"
+	"github.com/vishvananda/netlink"
 )
 
 func readConfig(path string) *config.Configuration {
@@ -36,18 +37,18 @@ func createRule(family string, source *net.IPNet, dst *net.IPNet, table int) *ne
 	rule := netlink.NewRule()
 	switch family {
 	case "ipv4":
-		rule.Family = netlink.FAMILY_V4;
+		rule.Family = netlink.FAMILY_V4
 	case "ipv6":
-		rule.Family = netlink.FAMILY_V6;
+		rule.Family = netlink.FAMILY_V6
 	}
 	if source != nil {
-		rule.Src = source;
+		rule.Src = source
 	}
 	if dst != nil {
-		rule.Dst = dst;
+		rule.Dst = dst
 	}
 	if table != 0 {
-		rule.Table = table;
+		rule.Table = table
 	}
 	return rule
 }
@@ -94,9 +95,9 @@ func main() {
 			log.Println("Add route for " + parsedNet.String())
 			route := netlink.Route{
 				LinkIndex: link.Attrs().Index,
-				Dst: parsedNet,
-				Gw: gw,
-				Table: conf.Table,
+				Dst:       parsedNet,
+				Gw:        gw,
+				Table:     conf.Table,
 			}
 			if err := netlink.RouteAdd(&route); err != nil {
 				log.Fatal(err)
@@ -105,9 +106,9 @@ func main() {
 			if ip.Family == "ipv4" {
 				log.Println("Add neighbour for " + parsedIp.String())
 				neigh := netlink.Neigh{
-					LinkIndex: link.Attrs().Index,
-					State: netlink.NUD_PERMANENT,
-					IP: parsedIp,
+					LinkIndex:    link.Attrs().Index,
+					State:        netlink.NUD_PERMANENT,
+					IP:           parsedIp,
 					HardwareAddr: parseMac(conf.MacAddress),
 				}
 				if err := netlink.NeighAdd(&neigh); err != nil {
@@ -139,10 +140,10 @@ func main() {
 			log.Println("Add route for " + parsedNet.String())
 			route := netlink.Route{
 				LinkIndex: link.Attrs().Index,
-				Dst: parsedNet,
-				Gw: gw,
-				Flags: int(netlink.FLAG_ONLINK),
-				Table: conf.Table,
+				Dst:       parsedNet,
+				Gw:        gw,
+				Flags:     int(netlink.FLAG_ONLINK),
+				Table:     conf.Table,
 			}
 			if err := netlink.RouteAdd(&route); err != nil {
 				log.Fatal(err)
@@ -172,9 +173,9 @@ func main() {
 			log.Println("Delete route for " + parsedNet.String())
 			route := netlink.Route{
 				LinkIndex: link.Attrs().Index,
-				Dst: parsedNet,
-				Gw: gw,
-				Table: conf.Table,
+				Dst:       parsedNet,
+				Gw:        gw,
+				Table:     conf.Table,
 			}
 			if err := netlink.RouteDel(&route); err != nil {
 				log.Fatal(err)
@@ -183,9 +184,9 @@ func main() {
 			if ip.Family == "ipv4" {
 				log.Println("Delete neighbour for " + parsedIp.String())
 				neigh := netlink.Neigh{
-					LinkIndex: link.Attrs().Index,
-					State: netlink.NUD_PERMANENT,
-					IP: parsedIp,
+					LinkIndex:    link.Attrs().Index,
+					State:        netlink.NUD_PERMANENT,
+					IP:           parsedIp,
 					HardwareAddr: parseMac(conf.MacAddress),
 				}
 				if err := netlink.NeighDel(&neigh); err != nil {
@@ -217,10 +218,10 @@ func main() {
 			log.Println("Add route for " + parsedNet.String())
 			route := netlink.Route{
 				LinkIndex: link.Attrs().Index,
-				Dst: parsedNet,
-				Gw: gw,
-				Flags: int(netlink.FLAG_ONLINK),
-				Table: conf.Table,
+				Dst:       parsedNet,
+				Gw:        gw,
+				Flags:     int(netlink.FLAG_ONLINK),
+				Table:     conf.Table,
 			}
 			if err := netlink.RouteDel(&route); err != nil {
 				log.Fatal(err)

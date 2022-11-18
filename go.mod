@@ -1,4 +1,4 @@
-module git.frickel.earth/siewert/virtualisation/fast-announcer
+module github.com/tomsiewert/fast-announcer
 
 go 1.19
 
