@@ -40,6 +40,8 @@ func createRule(family string, source *net.IPNet, dst *net.IPNet, table int) *ne
 		rule.Family = netlink.FAMILY_V4
 	case "ipv6":
 		rule.Family = netlink.FAMILY_V6
+	default:
+		log.Println("No family defined for " + source.String() + " " + dst.String())
 	}
 	if source != nil {
 		rule.Src = source
