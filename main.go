@@ -77,164 +77,125 @@ func main() {
 		log.Fatal(err)
 	}
 
-	switch domainAction {
-	case "post-start":
-		for _, ip := range conf.IPAddresses {
-			parsedIp, parsedNet, _ := net.ParseCIDR(ip.Address)
+	for _, ip := range conf.IPAddresses {
+		parsedIp, parsedNet, _ := net.ParseCIDR(ip.Address)
 
-			log.Println("Add src rule for " + parsedNet.String())
-			srcRule := createRule(ip.Family, parsedNet, nil, conf.Table)
+		srcRule := createRule(ip.Family, parsedNet, nil, conf.Table)
+		dstRule := createRule(ip.Family, nil, parsedNet, conf.Table)
+
+		gw := linkLocal
+		if ip.Family != "ipv6" {
+			gw = nil
+		}
+
+		route := netlink.Route{
+			LinkIndex: link.Attrs().Index,
+			Dst:       parsedNet,
+			Gw:        gw,
+			Table:     conf.Table,
+		}
+
+		var neigh netlink.Neigh
+		if ip.Family == "ipv4" {
+			neigh = netlink.Neigh{
+				LinkIndex:    link.Attrs().Index,
+				State:        netlink.NUD_PERMANENT,
+				IP:           parsedIp,
+				HardwareAddr: parseMac(conf.MacAddress),
+			}
+		}
+
+		switch domainAction {
+		case "post-start":
+			log.Println("Add src rule for " + parsedIp.String())
 			if err := netlink.RuleAdd(srcRule); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
-
-			log.Println("Add dst rule for " + parsedNet.String())
-			dstRule := createRule(ip.Family, nil, parsedNet, conf.Table)
+			log.Println("Add dst rule for " + parsedIp.String())
 			if err := netlink.RuleAdd(dstRule); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
-
-			gw := linkLocal
-			if ip.Family != "ipv6" {
-				gw = nil
-			}
-
-			log.Println("Add route for " + parsedNet.String())
-			route := netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Dst:       parsedNet,
-				Gw:        gw,
-				Table:     conf.Table,
-			}
+			log.Println("Add route for " + parsedIp.String())
 			if err := netlink.RouteAdd(&route); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
-
 			if ip.Family == "ipv4" {
-				log.Println("Add neighbour for " + parsedIp.String())
-				neigh := netlink.Neigh{
-					LinkIndex:    link.Attrs().Index,
-					State:        netlink.NUD_PERMANENT,
-					IP:           parsedIp,
-					HardwareAddr: parseMac(conf.MacAddress),
-				}
+				log.Println("Add neigh for " + parsedIp.String())
 				if err := netlink.NeighAdd(&neigh); err != nil {
-					log.Fatal(err)
+					log.Println(err)
 				}
 			}
-		}
-
-		for _, network := range conf.IPNetworks {
-			_, parsedNet, _ := net.ParseCIDR(network.Network)
-
-			log.Println("Add src rule for " + parsedNet.String())
-			srcRule := createRule(network.Family, parsedNet, nil, conf.Table)
-			if err := netlink.RuleAdd(srcRule); err != nil {
-				log.Fatal(err)
-			}
-
-			log.Println("Add dst rule for " + parsedNet.String())
-			dstRule := createRule(network.Family, nil, parsedNet, conf.Table)
-			if err := netlink.RuleAdd(dstRule); err != nil {
-				log.Fatal(err)
-			}
-
-			gw := linkLocal
-			if network.Family == "ipv4" {
-				gw = net.ParseIP(network.NextHop)
-			}
-
-			log.Println("Add route for " + parsedNet.String())
-			route := netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Dst:       parsedNet,
-				Gw:        gw,
-				Flags:     int(netlink.FLAG_ONLINK),
-				Table:     conf.Table,
-			}
-			if err := netlink.RouteAdd(&route); err != nil {
-				log.Fatal(err)
-			}
-		}
-	case "post-stop":
-		for _, ip := range conf.IPAddresses {
-			parsedIp, parsedNet, _ := net.ParseCIDR(ip.Address)
-
-			log.Println("Delete src rule for " + parsedNet.String())
-			srcRule := createRule(ip.Family, parsedNet, nil, conf.Table)
+		case "post-stop":
+			log.Println("Del src rule for " + parsedIp.String())
 			if err := netlink.RuleDel(srcRule); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
-
-			log.Println("Delete dst rule for " + parsedNet.String())
-			dstRule := createRule(ip.Family, nil, parsedNet, conf.Table)
+			log.Println("Del dst rule for " + parsedIp.String())
 			if err := netlink.RuleDel(dstRule); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
-
-			gw := linkLocal
-			if ip.Family != "ipv6" {
-				gw = nil
-			}
-
-			log.Println("Delete route for " + parsedNet.String())
-			route := netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Dst:       parsedNet,
-				Gw:        gw,
-				Table:     conf.Table,
-			}
+			log.Println("Del route for " + parsedIp.String())
 			if err := netlink.RouteDel(&route); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
-
 			if ip.Family == "ipv4" {
-				log.Println("Delete neighbour for " + parsedIp.String())
-				neigh := netlink.Neigh{
-					LinkIndex:    link.Attrs().Index,
-					State:        netlink.NUD_PERMANENT,
-					IP:           parsedIp,
-					HardwareAddr: parseMac(conf.MacAddress),
-				}
+				log.Println("Del neigh for " + parsedIp.String())
 				if err := netlink.NeighDel(&neigh); err != nil {
-					log.Fatal(err)
+					log.Println(err)
 				}
 			}
+		default:
+			log.Fatal("No matching action found")
+		}
+	}
+
+	for _, network := range conf.IPNetworks {
+		_, parsedNet, _ := net.ParseCIDR(network.Network)
+
+		srcRule := createRule(network.Family, parsedNet, nil, conf.Table)
+		dstRule := createRule(network.Family, nil, parsedNet, conf.Table)
+
+		gw := linkLocal
+		if network.Family == "ipv4" {
+			gw = net.ParseIP(network.NextHop)
 		}
 
-		for _, network := range conf.IPNetworks {
-			_, parsedNet, _ := net.ParseCIDR(network.Network)
-
+		route := netlink.Route{
+			LinkIndex: link.Attrs().Index,
+			Dst:       parsedNet,
+			Gw:        gw,
+			Flags:     int(netlink.FLAG_ONLINK),
+			Table:     conf.Table,
+		}
+		switch domainAction {
+		case "post-start":
 			log.Println("Add src rule for " + parsedNet.String())
-			srcRule := createRule(network.Family, parsedNet, nil, conf.Table)
 			if err := netlink.RuleAdd(srcRule); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
-
 			log.Println("Add dst rule for " + parsedNet.String())
-			dstRule := createRule(network.Family, nil, parsedNet, conf.Table)
 			if err := netlink.RuleAdd(dstRule); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
-
-			gw := linkLocal
-			if network.Family == "ipv4" {
-				gw = net.ParseIP(network.NextHop)
-			}
-
 			log.Println("Add route for " + parsedNet.String())
-			route := netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Dst:       parsedNet,
-				Gw:        gw,
-				Flags:     int(netlink.FLAG_ONLINK),
-				Table:     conf.Table,
+			if err := netlink.RouteAdd(&route); err != nil {
+				log.Println(err)
 			}
+		case "post-stop":
+			log.Println("Del src rule for " + parsedNet.String())
+			if err := netlink.RuleDel(srcRule); err != nil {
+				log.Println(err)
+			}
+			log.Println("Del dst rule for " + parsedNet.String())
+			if err := netlink.RuleDel(dstRule); err != nil {
+				log.Println(err)
+			}
+			log.Println("Del route for " + parsedNet.String())
 			if err := netlink.RouteDel(&route); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
+		default:
+			log.Fatal("No matching action found")
 		}
-	default:
-		log.Println("No action matched.")
 	}
 }
