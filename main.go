@@ -59,6 +59,11 @@ func main() {
 	args := os.Args
 	domainID := args[1]
 	domainAction := args[2]
+
+	if domainAction == "pre-start" || domainAction == "pre-stop" {
+		os.Exit(0)
+	}
+
 	conf := readConfig("/var/lib/infra/network/" + domainID + ".json")
 
 	parsedMac := parseMac(conf.MacAddress)
